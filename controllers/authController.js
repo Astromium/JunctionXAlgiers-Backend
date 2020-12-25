@@ -2,7 +2,8 @@ const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/appError');
-const User = require('../models/userModel');
+const Reseller = require('../models/resellerModel');
+const Marketer = require('../models/marketerModel');
 
 const signJwt = (user) => {
   return jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -21,7 +22,7 @@ const createSendToken = (user, statusCode, res) => {
   });
 };
 
-exports.protect = catchAsync(async (req, res, next) => {
+exports.protectReseller = catchAsync(async (req, res, next) => {
   //? 1) GETTING THE TOKEN FROM THE HEADERS
   let token;
   if (
@@ -35,32 +36,97 @@ exports.protect = catchAsync(async (req, res, next) => {
 
   //? 2) DECODING THE TOKEN & CHECKING IF ITS VALID
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-  const currentUser = await User.findById(decoded.id);
+  const currentReseller = await Reseller.findById(decoded.id);
 
-  if (!currentUser) return next(new AppError('User Does not exist', 401));
+  if (!currentReseller) return next(new AppError("User Does not exist", 401));
 
   //? 3) IF EVERYTHING OK RETURN THE USER
-  req.user = currentUser;
+  req.user = currentReseller;
 
   next();
 });
 
-exports.signUp = catchAsync(async (req, res, next) => {
-  const { name, email, password, passwordConfirm } = req.body;
-  const newUser = await User.create({ name, email, password, passwordConfirm });
+exports.signUpReseller = catchAsync(async (req, res, next) => {
+  const { firstName, lastName, location, phone, email, password, passwordConfirm } = req.body;
+  const newSeller = await Reseller.create({
+    firstName,
+    lastName,
+    location,
+    phone,
+    email,
+    password,
+    passwordConfirm,
+  });
 
-  createSendToken(newUser, 201, res);
+  createSendToken(newSeller, 201, res);
 });
 
-exports.login = catchAsync(async (req, res, next) => {
+exports.loginReseller = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email }).select('+password');
+  const reseller = await Reseller.findOne({ email }).select('+password');
 
-  if (!user || !(await user.correctPassword(password, user.password))) {
+  if (!reseller || !(await reseller.correctPassword(password, reseller.password))) {
     return next(new AppError('Invalid Email or Password', 400));
   }
 
-  //? IF EVERYTHING OK LOGIN THE USER
-  createSendToken(user, 200, res);
+  //? IF EVERYTHING OK LOGIN THE reseller
+  createSendToken(reseller, 200, res);
+});
+
+exports.protectMarketer = catchAsync(async (req, res, next) => {
+  //? 1) GETTING THE TOKEN FROM THE HEADERS
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
+    token = req.headers.authorization.split(" ")[1];
+  } else {
+    return next(new AppError("You are currently not logged in", 401));
+  }
+
+  //? 2) DECODING THE TOKEN & CHECKING IF ITS VALID
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+  const currentMarketer = await Marketer.findById(decoded.id);
+
+  if (!currentMarketer) return next(new AppError("User Does not exist", 401));
+
+  //? 3) IF EVERYTHING OK RETURN THE USER
+  req.user = currentMarketer;
+
+  next();
+});
+
+exports.signUpMarketer = catchAsync(async (req, res, next) => {
+  const {
+    name,
+    email,
+    password,
+    passwordConfirm,
+  } = req.body;
+  const newMarketer = await Marketer.create({
+    name,
+    email,
+    password,
+    passwordConfirm,
+  });
+
+  createSendToken(newMarketer, 201, res);
+});
+
+exports.loginMarketer = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+
+  const marketer = await Marketer.findOne({ email }).select("+password");
+
+  if (
+    !marketer ||
+    !(await marketer.correctPassword(password, marketer.password))
+  ) {
+    return next(new AppError("Invalid Email or Password", 400));
+  }
+
+  //? IF EVERYTHING OK LOGIN THE marketer
+  createSendToken(marketer, 200, res);
 });

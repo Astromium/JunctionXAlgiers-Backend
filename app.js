@@ -8,9 +8,8 @@ const morgan = require('morgan')
 const compression = require('compression');
 const globalErrorHandler = require('./controllers/errorController')
 
-
-
-
+const resellerRouter = require('./routes/resellerRouter')
+const marketerRouter = require('./routes/marketerRouter')
 
 const app = express();
 app.use(express.json())
@@ -31,6 +30,9 @@ app.use(compression())
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'))
 };
+
+app.use('/api/v1/sellers', resellerRouter)
+app.use('/api/v1/marketers', marketerRouter)
 
 app.use(globalErrorHandler);
 
